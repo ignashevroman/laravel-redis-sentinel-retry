@@ -5,7 +5,7 @@
 
 declare(strict_types=1);
 
-namespace Namoshek\Redis\Sentinel\Tests;
+namespace Ignashevroman\Redis\Sentinel\Tests;
 
 /**
  * Base for all unit tests.
@@ -22,7 +22,7 @@ abstract class TestCase extends \Orchestra\Testbench\TestCase
     {
         return [
             \Illuminate\Redis\RedisServiceProvider::class,
-            \Namoshek\Redis\Sentinel\RedisSentinelServiceProvider::class,
+            \Ignashevroman\Redis\Sentinel\RedisSentinelServiceProvider::class,
         ];
     }
 
