@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Namoshek\Redis\Sentinel\Tests\Connectors;
+namespace Ignashevroman\Redis\Sentinel\Tests\Connectors;
 
 use Illuminate\Redis\RedisManager;
-use Namoshek\Redis\Sentinel\Connections\PhpRedisSentinelConnection;
-use Namoshek\Redis\Sentinel\Connectors\PhpRedisSentinelConnector;
-use Namoshek\Redis\Sentinel\Tests\TestCase;
+use Ignashevroman\Redis\Sentinel\Connections\PhpRedisSentinelConnection;
+use Ignashevroman\Redis\Sentinel\Connectors\PhpRedisSentinelConnector;
+use Ignashevroman\Redis\Sentinel\Tests\TestCase;
 use Redis;
 use RedisException;
 

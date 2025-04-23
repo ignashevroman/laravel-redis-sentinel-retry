@@ -4,7 +4,7 @@
 
 declare(strict_types=1);
 
-namespace Namoshek\Redis\Sentinel\Connections;
+namespace Ignashevroman\Redis\Sentinel\Connections;
 
 use Closure;
 use Illuminate\Redis\Connections\PhpRedisConnection;

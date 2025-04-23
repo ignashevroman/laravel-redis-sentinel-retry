@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Namoshek\Redis\Sentinel;
+namespace Ignashevroman\Redis\Sentinel;
 
 use Illuminate\Redis\RedisManager;
 use Illuminate\Support\ServiceProvider;
-use Namoshek\Redis\Sentinel\Connectors\PhpRedisSentinelConnector;
+use Ignashevroman\Redis\Sentinel\Connectors\PhpRedisSentinelConnector;
 
 /**
  * Registers and boots services of the Laravel Redis Sentinel package.
