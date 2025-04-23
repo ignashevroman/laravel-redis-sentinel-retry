@@ -34,6 +34,8 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
         "can't write against a read only replica",
     ];
 
+    private bool $isReconnected = false;
+
     /**
      * {@inheritdoc}
      *
@@ -45,6 +47,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::scan($cursor, $options);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::scan($cursor, $options);
+            }
 
             throw $e;
         }
@@ -61,6 +67,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::zscan($key, $cursor, $options);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::zscan($key, $cursor, $options);
+            }
 
             throw $e;
         }
@@ -77,6 +87,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::hscan($key, $cursor, $options);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::hscan($key, $cursor, $options);
+            }
 
             throw $e;
         }
@@ -93,6 +107,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::sscan($key, $cursor, $options);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::sscan($key, $cursor, $options);
+            }
 
             throw $e;
         }
@@ -109,6 +127,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::pipeline($callback);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::pipeline($callback);
+            }
 
             throw $e;
         }
@@ -125,6 +147,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::transaction($callback);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::transaction($callback);
+            }
 
             throw $e;
         }
@@ -141,6 +167,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::evalsha($script, $numkeys, $arguments);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::evalsha($script, $numkeys, $arguments);
+            }
 
             throw $e;
         }
@@ -157,6 +187,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             parent::subscribe($channels, $callback);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                parent::subscribe($channels, $callback);
+            }
 
             throw $e;
         }
@@ -173,6 +207,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             parent::psubscribe($channels, $callback);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                parent::psubscribe($channels, $callback);
+            }
 
             throw $e;
         }
@@ -189,6 +227,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             parent::flushdb();
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                parent::flushdb();
+            }
 
             throw $e;
         }
@@ -199,13 +241,16 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
      *
      * @throws RedisException
      */
-    public function command($method, array $parameters = []): mixed
+    public function command($method, array $parameters = [])
     {
         try {
             return parent::command($method, $parameters);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::command($method, $parameters);
+            }
             throw $e;
         }
     }
@@ -221,6 +266,10 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
             return parent::__call(strtolower($method), $parameters);
         } catch (RedisException $e) {
             $this->reconnectIfRedisIsUnavailableOrReadonly($e);
+            if ($this->isReconnected) {
+                $this->isReconnected = false;
+                return parent::__call($method, $parameters);
+            }
 
             throw $e;
         }
@@ -242,6 +291,7 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
                 // We may actually reconnect to the same, broken server. But after a failover occured, we should be ok.
                 // It may take a moment until the Sentinel returns the new master, so this may be triggered multiple times.
                 $this->reconnect();
+                $this->isReconnected = true;
 
                 return;
             }
