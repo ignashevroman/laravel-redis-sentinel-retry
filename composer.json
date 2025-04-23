@@ -36,7 +36,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Namoshek\\Redis\\Sentinel\\": "src"
+            "Ignashevroman\\Redis\\Sentinel\\": "src"
         }
     },
     "autoload-dev": {
