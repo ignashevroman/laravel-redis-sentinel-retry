@@ -25,27 +25,25 @@ class PhpRedisSentinelConnector extends PhpRedisConnector
      */
     public function connect(array $config, array $options): PhpRedisSentinelConnection
     {
-        $rawClient = $this->createClient(array_merge(
+        $mergedConfig = array_merge(
             $config,
             $options,
             Arr::pull($config, 'options', [])
-        ));
+        );
 
-        $wrapper = new RedisWrapper($rawClient);
+        $maxRetries = $mergedConfig['sentinel_max_retries'] ?? 3;
+        $retryDelay = $mergedConfig['sentinel_retry_delay'] ?? 100_000;
 
-        $connector = function () use (&$wrapper, $config, $options) {
-            $newClient = $this->createClient(array_merge(
-                $config,
-                $options,
-                Arr::pull($config, 'options', [])
-            ));
-
-            $wrapper->setClient($newClient); // replace the client
+        $rawClient = $this->createClient($mergedConfig);
+        $wrapper = new RedisWrapper($rawClient, null, $maxRetries, $retryDelay);
+        $connector = function () use (&$wrapper, $mergedConfig) {
+            $newClient = $this->createClient($mergedConfig);
+            $wrapper->setClient($newClient);
             return $wrapper;
         };
 
-        $connection = new PhpRedisSentinelConnection($rawClient, $connector, $config); // important: pass the raw Redis client
-        $connection->setClient($wrapper); // replace with the wrapper
+        $connection = new PhpRedisSentinelConnection($rawClient, $connector, $mergedConfig);
+        $connection->setClient($wrapper);
         $wrapper->setConnection($connection);
 
         return $connection;
