@@ -39,7 +39,16 @@ class RedisWrapper
             try {
                 return $this->client->{$name}(...$arguments);
             } catch (RedisException $e) {
-                if ($this->connection && $this->connection->handleFailover($e)) {
+                try {
+                    if ($this->connection && $this->connection->handleFailover($e)) {
+                        usleep($this->retryDelay);
+                        continue;
+                    }
+                } catch (RedisException $reconnectionException) {
+                    if ($attempt >= $this->maxRetries) {
+                        throw $reconnectionException;
+                    }
+
                     usleep($this->retryDelay);
                     continue;
                 }
