@@ -35,7 +35,7 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
      * Inspects the given exception and reconnects the client if the reported error indicates that the server
      * went away or is in readonly mode, which may happen in case of a Redis Sentinel failover.
      */
-    private function tryReconnect(RedisException $exception): void
+    private function tryReconnect(RedisException $exception): bool
     {
         // We convert the exception message to lower-case in order to perform case-insensitive comparison.
         $exceptionMessage = strtolower($exception->getMessage());
@@ -48,9 +48,11 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
                 // It may take a moment until the Sentinel returns the new master, so this may be triggered multiple times.
                 $this->reconnect();
 
-                return;
+                return true;
             }
         }
+
+        return false;
     }
 
     /**
@@ -63,9 +65,7 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
 
     public function handleFailover(RedisException $exception): bool
     {
-        $before = $this->client;
-        $this->tryReconnect($exception);
-        return $before !== $this->client;
+        return $this->tryReconnect($exception);
     }
 
     public function setClient($client): void
