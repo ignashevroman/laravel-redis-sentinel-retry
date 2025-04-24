@@ -6,10 +6,7 @@ declare(strict_types=1);
 
 namespace Ignashevroman\Redis\Sentinel\Connections;
 
-use Closure;
 use Illuminate\Redis\Connections\PhpRedisConnection;
-use Illuminate\Support\Str;
-use Redis;
 use RedisException;
 
 /**
@@ -34,252 +31,11 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
         "can't write against a read only replica",
     ];
 
-    private bool $isReconnected = false;
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function scan($cursor, $options = []): mixed
-    {
-        try {
-            return parent::scan($cursor, $options);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::scan($cursor, $options);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function zscan($key, $cursor, $options = []): mixed
-    {
-        try {
-            return parent::zscan($key, $cursor, $options);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::zscan($key, $cursor, $options);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function hscan($key, $cursor, $options = []): mixed
-    {
-        try {
-            return parent::hscan($key, $cursor, $options);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::hscan($key, $cursor, $options);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function sscan($key, $cursor, $options = []): mixed
-    {
-        try {
-            return parent::sscan($key, $cursor, $options);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::sscan($key, $cursor, $options);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function pipeline(?callable $callback = null): Redis|array
-    {
-        try {
-            return parent::pipeline($callback);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::pipeline($callback);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function transaction(?callable $callback = null): Redis|array
-    {
-        try {
-            return parent::transaction($callback);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::transaction($callback);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function evalsha($script, $numkeys, ...$arguments): mixed
-    {
-        try {
-            return parent::evalsha($script, $numkeys, $arguments);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::evalsha($script, $numkeys, $arguments);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function subscribe($channels, Closure $callback): void
-    {
-        try {
-            parent::subscribe($channels, $callback);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                parent::subscribe($channels, $callback);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function psubscribe($channels, Closure $callback): void
-    {
-        try {
-            parent::psubscribe($channels, $callback);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                parent::psubscribe($channels, $callback);
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function flushdb(): void
-    {
-        try {
-            parent::flushdb();
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                parent::flushdb();
-            }
-
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function command($method, array $parameters = [])
-    {
-        try {
-            return parent::command($method, $parameters);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::command($method, $parameters);
-            }
-            throw $e;
-        }
-    }
-
-    /**
-     * {@inheritdoc}
-     *
-     * @throws RedisException
-     */
-    public function __call($method, $parameters): mixed
-    {
-        try {
-            return parent::__call(strtolower($method), $parameters);
-        } catch (RedisException $e) {
-            $this->reconnectIfRedisIsUnavailableOrReadonly($e);
-            if ($this->isReconnected) {
-                $this->isReconnected = false;
-                return parent::__call($method, $parameters);
-            }
-
-            throw $e;
-        }
-    }
-
     /**
      * Inspects the given exception and reconnects the client if the reported error indicates that the server
      * went away or is in readonly mode, which may happen in case of a Redis Sentinel failover.
      */
-    private function reconnectIfRedisIsUnavailableOrReadonly(RedisException $exception): void
+    private function tryReconnect(RedisException $exception): void
     {
         // We convert the exception message to lower-case in order to perform case-insensitive comparison.
         $exceptionMessage = strtolower($exception->getMessage());
@@ -291,7 +47,6 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
                 // We may actually reconnect to the same, broken server. But after a failover occured, we should be ok.
                 // It may take a moment until the Sentinel returns the new master, so this may be triggered multiple times.
                 $this->reconnect();
-                $this->isReconnected = true;
 
                 return;
             }
@@ -304,5 +59,17 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
     private function reconnect(): void
     {
         $this->client = $this->connector ? call_user_func($this->connector) : $this->client;
+    }
+
+    public function handleFailover(RedisException $exception): bool
+    {
+        $before = $this->client;
+        $this->tryReconnect($exception);
+        return $before !== $this->client;
+    }
+
+    public function setClient($client): void
+    {
+        $this->client = $client;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Ignashevroman\Redis\Sentinel\Connectors;
 
+use Ignashevroman\Redis\Sentinel\Client\RedisWrapper;
 use Illuminate\Redis\Connectors\PhpRedisConnector;
 use Illuminate\Support\Arr;
 use Ignashevroman\Redis\Sentinel\Connections\PhpRedisSentinelConnection;
@@ -24,15 +25,30 @@ class PhpRedisSentinelConnector extends PhpRedisConnector
      */
     public function connect(array $config, array $options): PhpRedisSentinelConnection
     {
-        $connector = function () use ($config, $options) {
-            return $this->createClient(array_merge(
+        $rawClient = $this->createClient(array_merge(
+            $config,
+            $options,
+            Arr::pull($config, 'options', [])
+        ));
+
+        $wrapper = new RedisWrapper($rawClient);
+
+        $connector = function () use (&$wrapper, $config, $options) {
+            $newClient = $this->createClient(array_merge(
                 $config,
                 $options,
                 Arr::pull($config, 'options', [])
             ));
+
+            $wrapper->setClient($newClient); // replace the client
+            return $wrapper;
         };
 
-        return new PhpRedisSentinelConnection($connector(), $connector, $config);
+        $connection = new PhpRedisSentinelConnection($rawClient, $connector, $config); // important: pass the raw Redis client
+        $connection->setClient($wrapper); // replace with the wrapper
+        $wrapper->setConnection($connection);
+
+        return $connection;
     }
 
     /**
