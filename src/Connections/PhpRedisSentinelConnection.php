@@ -1,6 +1,13 @@
 <?php
 
-/* @noinspection PhpRedundantCatchClauseInspection */
+/*
+ * This file is part of the Laravel Redis Sentinel Retry package.
+ *
+ * (c) Roman Ignashev <ignashevroman99@gmail.com>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.md.
+ */
 
 declare(strict_types=1);
 

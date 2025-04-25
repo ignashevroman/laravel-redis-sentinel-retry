@@ -6,6 +6,19 @@ use PhpCsFixer\Config;
 use PhpCsFixer\Finder;
 
 $rules = [
+    'header_comment' => [
+        'comment_type' => 'comment',
+        'header' => <<<EOT
+This file is part of the Laravel Redis Sentinel Retry package.
+
+(c) Roman Ignashev <ignashevroman99@gmail.com>
+
+This source file is subject to the MIT license that is bundled
+with this source code in the file LICENSE.md.
+EOT,
+        'location' => 'after_open',
+        'separate' => 'both',
+    ],
     'array_syntax' => ['syntax' => 'short'],
     'binary_operator_spaces' => [
         'default' => 'single_space',

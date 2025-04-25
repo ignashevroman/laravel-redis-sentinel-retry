@@ -1,14 +1,23 @@
 <?php
 
+/*
+ * This file is part of the Laravel Redis Sentinel Retry package.
+ *
+ * (c) Roman Ignashev <ignashevroman99@gmail.com>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.md.
+ */
+
 declare(strict_types=1);
 
 namespace Ignashevroman\Redis\Sentinel\Connectors;
 
 use Ignashevroman\Redis\Sentinel\Client\RedisWrapper;
-use Illuminate\Redis\Connectors\PhpRedisConnector;
-use Illuminate\Support\Arr;
 use Ignashevroman\Redis\Sentinel\Connections\PhpRedisSentinelConnection;
 use Ignashevroman\Redis\Sentinel\Exceptions\ConfigurationException;
+use Illuminate\Redis\Connectors\PhpRedisConnector;
+use Illuminate\Support\Arr;
 use Redis;
 use RedisException;
 use RedisSentinel;
@@ -39,6 +48,7 @@ class PhpRedisSentinelConnector extends PhpRedisConnector
         $connector = function () use (&$wrapper, $mergedConfig) {
             $newClient = $this->createClient($mergedConfig);
             $wrapper->setClient($newClient);
+
             return $wrapper;
         };
 

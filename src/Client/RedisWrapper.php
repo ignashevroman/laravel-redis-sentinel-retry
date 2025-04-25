@@ -1,5 +1,16 @@
 <?php
 
+/*
+ * This file is part of the Laravel Redis Sentinel Retry package.
+ *
+ * (c) Roman Ignashev <ignashevroman99@gmail.com>
+ *
+ * This source file is subject to the MIT license that is bundled
+ * with this source code in the file LICENSE.md.
+ */
+
+declare(strict_types=1);
+
 namespace Ignashevroman\Redis\Sentinel\Client;
 
 use Ignashevroman\Redis\Sentinel\Connections\PhpRedisSentinelConnection;
@@ -16,8 +27,7 @@ class RedisWrapper
         private ?PhpRedisSentinelConnection $connection = null,
         protected int $maxRetries = 3,
         protected int $retryDelay = 100_000,
-    )
-    {
+    ) {
     }
 
     public function setClient(Redis $client): void
@@ -42,6 +52,7 @@ class RedisWrapper
                 try {
                     if ($this->connection && $this->connection->handleFailover($e)) {
                         usleep($this->retryDelay);
+
                         continue;
                     }
                 } catch (RedisException $reconnectionException) {
@@ -50,6 +61,7 @@ class RedisWrapper
                     }
 
                     usleep($this->retryDelay);
+
                     continue;
                 }
 
