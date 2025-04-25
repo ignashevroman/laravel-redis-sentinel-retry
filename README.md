@@ -60,6 +60,14 @@ It is based on the [Namoshek/laravel-redis-sentinel](https://github.com/Namoshek
 
 In general, this implementation focuses on improving fault tolerance and automating Redis connection management with Redis Sentinel, along with additional settings for controlling retry attempts and delay between reconnections.
 
+## Installation
+
+Install the package via Composer:
+
+```bash
+composer require ignashevroman/laravel-redis-sentinel-retry
+```
+
 ## Configuration
 
 In your `config/database.php`, add a new connection entry under the `redis` array, which uses the `phpredis-sentinel` client.
