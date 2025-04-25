@@ -35,6 +35,11 @@ class RedisWrapper
         $this->client = $client;
     }
 
+    public function getClient(): Redis
+    {
+        return $this->client;
+    }
+
     public function setConnection(PhpRedisSentinelConnection $connection): void
     {
         $this->connection = $connection;

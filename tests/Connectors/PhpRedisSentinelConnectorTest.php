@@ -61,16 +61,6 @@ class PhpRedisSentinelConnectorTest extends TestCase
     }
 
     /**
-     * @throws ReflectionException
-     */
-    private function getInnerClientId(RedisWrapper $client): string
-    {
-        $property = (new ReflectionClass($client))->getProperty('client');
-
-        return spl_object_hash($property->getValue($client));
-    }
-
-    /**
      * @throws Exception
      */
     public function test_throws_if_master_is_invalid(): void
@@ -113,7 +103,7 @@ class PhpRedisSentinelConnectorTest extends TestCase
         $client = $connection->client();
         self::assertInstanceOf(RedisWrapper::class, $client);
 
-        $innerBefore = $this->getInnerClientId($client);
+        $innerBefore = $client->getClient();
 
         // Подменим клиент на мок, который бросает исключение
         $mock = $this->getMockBuilder(Redis::class)
@@ -132,7 +122,7 @@ class PhpRedisSentinelConnectorTest extends TestCase
             // intentionally ignored
         }
 
-        $innerAfter = $this->getInnerClientId($connection->client());
+        $innerAfter = $client->getClient();
 
         self::assertNotSame($innerBefore, $innerAfter, 'Inner Redis client should be replaced after exception');
     }

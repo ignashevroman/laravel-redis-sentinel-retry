@@ -107,7 +107,6 @@ class RedisWrapperTest extends TestCase
         $wrapper = new RedisWrapper($originalClient);
         $wrapper->setClient($newClient);
 
-        // Проверим, что новый клиент был использован
         $newClient->expects($this->once())
             ->method('get')
             ->with('foo')
@@ -138,5 +137,21 @@ class RedisWrapperTest extends TestCase
 
         $this->expectException(RedisException::class);
         $wrapper->get('foo');
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function test_getClient_returns_the_current_client(): void
+    {
+        $originalClient = $this->createMock(Redis::class);
+        $newClient = $this->createMock(Redis::class);
+
+        $wrapper = new RedisWrapper($originalClient);
+
+        $this->assertSame($originalClient, $wrapper->getClient());
+
+        $wrapper->setClient($newClient);
+        $this->assertSame($newClient, $wrapper->getClient());
     }
 }
