@@ -24,41 +24,17 @@ It is based on the [Namoshek/laravel-redis-sentinel](https://github.com/Namoshek
 - Uses `PhpRedis` extension for Redis connections.
 - Simple configuration with Laravel built-in Redis system.
 
-### Differences in Implementation:
+### Comparison with `namoshek/laravel-redis-sentinel`
 
-1. **Retry Logic (Retries)**
-    - This implementation introduces **retry logic** to handle transient errors such as **temporary connection failures** or **readonly states**. This allows automatic retries of requests if Redis becomes operational again after a failure.
-    - In the case of an error like "READONLY" or a connection loss, the client will automatically retry the connection multiple times, improving the system's resilience.
-
-2. **Integration with Redis Sentinel:**
-    - This implementation enhances the **automatic failover mechanism** with Redis Sentinel. When the primary Redis server fails, the system automatically switches to a new master, if possible.
-    - The **new master** is selected via **Redis Sentinel**, and if the current client loses connection or becomes "readonly", it tries to reconnect to the new master, taking into account settings for **retry attempts and delays**.
-
-3. **Configuration Parameters:**
-    - Two new configuration parameters were added to this package:
-        - `sentinel_max_retries` — the maximum number of reconnection attempts.
-        - `sentinel_retry_delay` — the delay between reconnection attempts.
-    - These parameters provide flexibility in configuring the number of retries and delays for reconnection in case of failures.
-
-4. **RedisWrapper Reconnection Logic:**
-    - The **RedisWrapper** class manages the Redis client and encapsulates the retry logic, error checking, and failover handling.
-    - If the connection is lost or becomes readonly, RedisWrapper automatically retries the connection for a set number of attempts, improving Redis availability.
-
-5. **Error Handling in RedisWrapper:**
-    - When an error occurs, such as a lost connection or readonly error, RedisWrapper attempts to **reconnect** through **handleFailover** (a method that manages reconnection).
-    - If Redis does not recover after several attempts, an exception is thrown, just like in a standard Redis error scenario.
-
-### Technical Implementation:
-1. **`__call()` Method in RedisWrapper:**
-    - The `__call()` method handles Redis client method calls. It includes retry logic: if an error occurs, it checks if Redis can reconnect using the `handleFailover` method. If this method returns `true`, the client will attempt the operation again.
-
-2. **PhpRedisSentinelConnection Class:**
-    - A class that interacts with Redis Sentinel. It extends the standard Redis connection to add support for Sentinel and the ability to restart the connection in the event of errors or failover situations.
-
-3. **Automatic Redis Master Failover:**
-    - When the current Redis server becomes unavailable, the system automatically switches to the new server designated by Sentinel, without user intervention.
-
-In general, this implementation focuses on improving fault tolerance and automating Redis connection management with Redis Sentinel, along with additional settings for controlling retry attempts and delay between reconnections.
+| Feature                                | `ignashevroman/laravel-redis-sentinel-retry` | `namoshek/laravel-redis-sentinel` |
+|:---------------------------------------|:---------------------------------------------|:----------------------------------|
+| Connection via Redis Sentinel          | ✅                                           | ✅                                |
+| Easy integration                       | ✅                                           | ✅                                |
+| Automatic retry on connection failures | ✅                                           | ❌                                |
+| Failover during runtime                | ✅                                           | ❌                                |
+| Configurable retry attempts and delays | ✅                                           | ❌                                |
+| Focus on production stability          | ✅                                           | ❌                                |
+| Error handling strategy                | Catch and retry                             | Immediate exception              |
 
 ## Installation
 
@@ -99,6 +75,32 @@ In your `config/database.php`, add a new connection entry under the `redis` arra
 > **Note:** The configuration options are the same as in [namoshek/laravel-redis-sentinel](https://github.com/Namoshek/laravel-redis-sentinel), with two additional options for retry functionality:
 - `sentinel_max_retries`: The number of retry attempts for Redis operations (default: 3).
 - `sentinel_retry_delay`: The delay between retries in microseconds (default: 100,000).
+
+## Differences in Implementation:
+
+1. **Retry Logic (Retries)**
+    - This implementation introduces **retry logic** to handle transient errors such as **temporary connection failures** or **readonly states**. This allows automatic retries of requests if Redis becomes operational again after a failure.
+    - In the case of an error like "READONLY" or a connection loss, the client will automatically retry the connection multiple times, improving the system's resilience.
+
+2. **Integration with Redis Sentinel:**
+    - This implementation enhances the **automatic failover mechanism** with Redis Sentinel. When the primary Redis server fails, the system automatically switches to a new master, if possible.
+    - The **new master** is selected via **Redis Sentinel**, and if the current client loses connection or becomes "readonly", it tries to reconnect to the new master, taking into account settings for **retry attempts and delays**.
+
+3. **Configuration Parameters:**
+    - Two new configuration parameters were added to this package:
+        - `sentinel_max_retries` — the maximum number of reconnection attempts.
+        - `sentinel_retry_delay` — the delay between reconnection attempts.
+    - These parameters provide flexibility in configuring the number of retries and delays for reconnection in case of failures.
+
+4. **RedisWrapper Reconnection Logic:**
+    - The **RedisWrapper** class manages the Redis client and encapsulates the retry logic, error checking, and failover handling.
+    - If the connection is lost or becomes readonly, RedisWrapper automatically retries the connection for a set number of attempts, improving Redis availability.
+
+5. **Error Handling in RedisWrapper:**
+    - When an error occurs, such as a lost connection or readonly error, RedisWrapper attempts to **reconnect** through **handleFailover** (a method that manages reconnection).
+    - If Redis does not recover after several attempts, an exception is thrown, just like in a standard Redis error scenario.
+
+In general, this implementation focuses on improving fault tolerance and automating Redis connection management with Redis Sentinel, along with additional settings for controlling retry attempts and delay between reconnections.
 
 ## License
 

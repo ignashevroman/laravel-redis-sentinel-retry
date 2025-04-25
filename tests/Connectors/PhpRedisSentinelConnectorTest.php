@@ -105,7 +105,6 @@ class PhpRedisSentinelConnectorTest extends TestCase
 
         $innerBefore = $client->getClient();
 
-        // Подменим клиент на мок, который бросает исключение
         $mock = $this->getMockBuilder(Redis::class)
             ->onlyMethods(['get'])
             ->getMock();
