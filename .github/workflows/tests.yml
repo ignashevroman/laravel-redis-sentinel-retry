@@ -96,7 +96,7 @@ jobs:
           sed -i "s|$GITHUB_WORKSPACE|/github/workspace|g" phpunit.report-junit.xml
 
       - name: Run SonarQube analysis
-        uses: sonarsource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5
         if: ${{ matrix.run-sonarqube-analysis && !github.event.pull_request.head.repo.fork }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
