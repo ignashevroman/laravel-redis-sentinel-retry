@@ -96,7 +96,7 @@ class PhpRedisSentinelConnector extends PhpRedisConnector
      *
      * @throws ConfigurationException
      */
-    private function connectToSentinel(array $config): RedisSentinel
+    protected function connectToSentinel(array $config): RedisSentinel
     {
         $host = $config['sentinel_host'] ?? '';
         $port = $config['sentinel_port'] ?? 26379;

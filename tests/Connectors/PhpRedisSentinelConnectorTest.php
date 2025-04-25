@@ -15,9 +15,13 @@ namespace Ignashevroman\Redis\Sentinel\Tests\Connectors;
 
 use Ignashevroman\Redis\Sentinel\Client\RedisWrapper;
 use Ignashevroman\Redis\Sentinel\Connections\PhpRedisSentinelConnection;
+use Ignashevroman\Redis\Sentinel\Connectors\PhpRedisSentinelConnector;
+use Ignashevroman\Redis\Sentinel\Exceptions\ConfigurationException;
 use Ignashevroman\Redis\Sentinel\Tests\TestCase;
+use PHPUnit\Framework\MockObject\Exception;
 use Redis;
 use RedisException;
+use RedisSentinel;
 use ReflectionClass;
 use ReflectionException;
 
@@ -26,7 +30,7 @@ use ReflectionException;
  */
 class PhpRedisSentinelConnectorTest extends TestCase
 {
-    public function test_connecting_to_redis_through_sentinel_without_password_works(): void
+    public function test_connects_without_password(): void
     {
         /** @var PhpRedisSentinelConnection $connection */
         $connection = app('redis')->connection('default');
@@ -34,7 +38,10 @@ class PhpRedisSentinelConnectorTest extends TestCase
         self::assertTrue($connection->ping());
     }
 
-    public function test_wrapper_retries_on_transient_failure(): void
+    /**
+     * @throws ReflectionException
+     */
+    public function test_retries_on_transient_failure(): void
     {
         $this->assertRedisWrapperReconnectsOnException(
             new RedisException("READONLY You can't write against a read only replica."),
@@ -42,12 +49,56 @@ class PhpRedisSentinelConnectorTest extends TestCase
         );
     }
 
-    public function test_wrapper_retries_on_connection_lost(): void
+    /**
+     * @throws ReflectionException
+     */
+    public function test_retries_on_connection_lost(): void
     {
         $this->assertRedisWrapperReconnectsOnException(
             new RedisException('Connection lost.'),
             'another_key'
         );
+    }
+
+    /**
+     * @throws ReflectionException
+     */
+    private function getInnerClientId(RedisWrapper $client): string
+    {
+        $property = (new ReflectionClass($client))->getProperty('client');
+
+        return spl_object_hash($property->getValue($client));
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function test_throws_if_master_is_invalid(): void
+    {
+        $connector = $this->getMockBuilder(PhpRedisSentinelConnector::class)
+            ->onlyMethods(['connectToSentinel'])
+            ->getMock();
+
+        $sentinel = $this->createMock(RedisSentinel::class);
+        $sentinel->method('master')->willReturn(null);
+
+        $connector->method('connectToSentinel')->willReturn($sentinel);
+
+        $this->expectException(RedisException::class);
+        $this->expectExceptionMessageMatches('/No master found/');
+
+        $connector->connect([
+            'sentinel_service' => 'invalid',
+            'sentinel_host' => '127.0.0.1',
+        ], []);
+    }
+
+    public function test_throws_if_sentinel_host_is_empty(): void
+    {
+        $connector = new PhpRedisSentinelConnector();
+
+        $this->expectException(ConfigurationException::class);
+        $connector->connect([], []);
     }
 
     /**
@@ -84,15 +135,5 @@ class PhpRedisSentinelConnectorTest extends TestCase
         $innerAfter = $this->getInnerClientId($connection->client());
 
         self::assertNotSame($innerBefore, $innerAfter, 'Inner Redis client should be replaced after exception');
-    }
-
-    /**
-     * @throws ReflectionException
-     */
-    private function getInnerClientId(RedisWrapper $client): string
-    {
-        $property = (new ReflectionClass($client))->getProperty('client');
-
-        return spl_object_hash($property->getValue($client));
     }
 }
