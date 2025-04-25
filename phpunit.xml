@@ -12,10 +12,10 @@
          failOnRisky="true"
          failOnWarning="true">
     <php>
-        <env name="APP_KEY" value="nutfSECXIvnK5r28GVIWUAxmbBSjTsmF"/>
+        <env name="APP_KEY" value="base64:2oQqIlSKUh9OnoM4AVsdqdonmP7J35uQJ0eAHTWhX/w="/>
         <env name="REDIS_SENTINEL_HOST" value="127.0.0.1"/>
         <env name="REDIS_SENTINEL_PORT" value="26379"/>
-        <env name="REDIS_SENTINEL_SERVICE" value="service1"/>
+        <env name="REDIS_SENTINEL_SERVICE" value="mymaster"/>
     </php>
     <testsuites>
         <testsuite name="default">
