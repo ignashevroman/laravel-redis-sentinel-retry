@@ -1,5 +1,9 @@
 # Laravel Redis Sentinel Retry
 
+[![Latest Stable Version](http://poser.pugx.org/ignashevroman/laravel-redis-sentinel-retry/v)](https://packagist.org/packages/ignashevroman/laravel-redis-sentinel-retry) 
+[![Total Downloads](http://poser.pugx.org/ignashevroman/laravel-redis-sentinel-retry/downloads)](https://packagist.org/packages/ignashevroman/laravel-redis-sentinel-retry) 
+[![License](http://poser.pugx.org/ignashevroman/laravel-redis-sentinel-retry/license)](https://packagist.org/packages/ignashevroman/laravel-redis-sentinel-retry) 
+[![PHP Version Require](http://poser.pugx.org/ignashevroman/laravel-redis-sentinel-retry/require/php)](https://packagist.org/packages/ignashevroman/laravel-redis-sentinel-retry)
 [![Tests](https://github.com/ignashevroman/laravel-redis-sentinel-retry/workflows/Tests/badge.svg)](https://github.com/ignashevroman/laravel-redis-sentinel-retry/actions?query=workflow%3ATests)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ignashevroman_laravel-redis-sentinel-retry&metric=alert_status)](https://sonarcloud.io/dashboard?id=ignashevroman_laravel-redis-sentinel-retry)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ignashevroman_laravel-redis-sentinel-retry&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=ignashevroman_laravel-redis-sentinel-retry)
