@@ -66,15 +66,28 @@ In your `config/database.php`, add a new connection entry under the `redis` arra
         'database' => (int) env('REDIS_DB', 0),
         
         // Additional options for retry functionality
-        'sentinel_max_retries' => env('REDIS_SENTINEL_MAX_RETRIES', 3),
-        'sentinel_retry_delay' => env('REDIS_SENTINEL_RETRY_DELAY', 100_000),
+        'sentinel_max_retries' => (int) env('REDIS_SENTINEL_MAX_RETRIES', 3),
+        'sentinel_retry_delay' => (int) env('REDIS_SENTINEL_RETRY_DELAY', 100_000),
+
+        // Optional: retries of the initial connection, disabled by default (1 attempt)
+        'sentinel_connect_max_retries' => (int) env('REDIS_SENTINEL_CONNECT_MAX_RETRIES', 1),
+        'sentinel_connect_retry_delay' => (int) env('REDIS_SENTINEL_CONNECT_RETRY_DELAY', 100_000),
+
+        // Optional: several Sentinels asked one by one, sentinel_host and sentinel_port are used when empty
+        'sentinel_hosts' => [
+            // ['host' => 'sentinel-1', 'port' => 26379],
+            // ['host' => 'sentinel-2', 'port' => 26379],
+        ],
     ]
 ],
 ```
 
-> **Note:** The configuration options are the same as in [namoshek/laravel-redis-sentinel](https://github.com/Namoshek/laravel-redis-sentinel), with two additional options for retry functionality:
-- `sentinel_max_retries`: The number of retry attempts for Redis operations (default: 3).
+> **Note:** The configuration options are the same as in [namoshek/laravel-redis-sentinel](https://github.com/Namoshek/laravel-redis-sentinel), with additional options for retry functionality:
+- `sentinel_max_retries`: The number of attempts for Redis operations (default: 3).
 - `sentinel_retry_delay`: The delay between retries in microseconds (default: 100,000).
+- `sentinel_connect_max_retries`: The number of attempts for the initial connection (default: 1, no retries).
+- `sentinel_connect_retry_delay`: The delay between initial connection attempts in microseconds (default: 100,000).
+- `sentinel_hosts`: A list of Sentinels to ask for the master one by one, in the same format as in `namoshek/laravel-redis-sentinel`.
 
 ## Differences in Implementation:
 
@@ -91,6 +104,8 @@ In your `config/database.php`, add a new connection entry under the `redis` arra
         - `sentinel_max_retries` — the maximum number of reconnection attempts.
         - `sentinel_retry_delay` — the delay between reconnection attempts.
     - These parameters provide flexibility in configuring the number of retries and delays for reconnection in case of failures.
+    - The initial connection is not retried by default, so a missing or misconfigured Redis fails fast. Set `sentinel_connect_max_retries` for long-running processes such as queue workers, so a worker connecting during a failover waits for Sentinel to return the master instead of failing.
+    - With `sentinel_hosts`, the next Sentinel is asked if the previous one is unavailable or does not return the master.
 
 4. **RedisWrapper Reconnection Logic:**
     - The **RedisWrapper** class manages the Redis client and encapsulates the retry logic, error checking, and failover handling.

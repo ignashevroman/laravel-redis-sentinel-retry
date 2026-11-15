@@ -33,7 +33,7 @@ jobs:
         run: docker compose up -d --wait
 
       - name: Setup PHPUnit
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php-version }}
           extensions: redis
@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: ${{ matrix.upload-codecov-coverage && !github.event.pull_request.head.repo.fork }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: phpunit.coverage-clover.xml
@@ -83,4 +83,4 @@ jobs:
 
       - name: Dump docker logs on failure
         if: failure()
-        uses: jwalton/gh-docker-logs@v2
+        uses: jwalton/gh-docker-logs@2741064ab9d7af54b0b1ffb6076cf64c16f0220e # v2.2.2

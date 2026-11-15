@@ -40,10 +40,12 @@ class PhpRedisSentinelConnector extends PhpRedisConnector
             Arr::pull($config, 'options', [])
         );
 
-        $maxRetries = $mergedConfig['sentinel_max_retries'] ?? 3;
-        $retryDelay = $mergedConfig['sentinel_retry_delay'] ?? 100_000;
+        $maxRetries = (int) ($mergedConfig['sentinel_max_retries'] ?? 3);
+        $retryDelay = (int) ($mergedConfig['sentinel_retry_delay'] ?? 100_000);
+        $connectMaxRetries = (int) ($mergedConfig['sentinel_connect_max_retries'] ?? 1);
+        $connectRetryDelay = (int) ($mergedConfig['sentinel_connect_retry_delay'] ?? 100_000);
 
-        $rawClient = $this->createClient($mergedConfig);
+        $rawClient = $this->createClientWithRetries($mergedConfig, $connectMaxRetries, $connectRetryDelay);
         $wrapper = new RedisWrapper($rawClient, null, $maxRetries, $retryDelay);
         $connector = function () use (&$wrapper, $mergedConfig) {
             $newClient = $this->createClient($mergedConfig);
@@ -60,6 +62,31 @@ class PhpRedisSentinelConnector extends PhpRedisConnector
     }
 
     /**
+     * Create the PhpRedis client instance, retrying while Sentinel or the master is unavailable.
+     *
+     * @throws ConfigurationException
+     * @throws RedisException
+     */
+    protected function createClientWithRetries(array $config, int $maxRetries, int $retryDelay): Redis
+    {
+        $attempt = 0;
+
+        while (true) {
+            $attempt++;
+
+            try {
+                return $this->createClient($config);
+            } catch (RedisException $e) {
+                if ($attempt >= $maxRetries) {
+                    throw $e;
+                }
+
+                usleep($retryDelay);
+            }
+        }
+    }
+
+    /**
      * Create the PhpRedis client instance which connects to Redis Sentinel.
      *
      * @throws ConfigurationException
@@ -67,20 +94,57 @@ class PhpRedisSentinelConnector extends PhpRedisConnector
      */
     protected function createClient(array $config): Redis
     {
-        $service = $config['sentinel_service'] ?? 'mymaster';
-
-        $sentinel = $this->connectToSentinel($config);
-
-        $master = $sentinel->master($service);
-
-        if (! $this->isValidMaster($master)) {
-            throw new RedisException(sprintf("No master found for service '%s'.", $service));
-        }
+        $master = $this->getMaster($config);
 
         return parent::createClient(array_merge($config, [
             'host' => $master['ip'],
             'port' => $master['port'],
         ]));
+    }
+
+    /**
+     * Ask the configured Sentinels one by one until one of them returns a valid master.
+     *
+     * @throws ConfigurationException
+     * @throws RedisException
+     */
+    protected function getMaster(array $config): array
+    {
+        $service = $config['sentinel_service'] ?? 'mymaster';
+        $exception = null;
+
+        foreach ($this->getSentinelHosts($config) as $host) {
+            try {
+                $master = $this->connectToSentinel(array_merge($config, $host))->master($service);
+
+                if ($this->isValidMaster($master)) {
+                    return $master;
+                }
+
+                $exception = new RedisException(sprintf("No master found for service '%s'.", $service));
+            } catch (RedisException $e) {
+                $exception = $e;
+            }
+        }
+
+        throw $exception;
+    }
+
+    /**
+     * Get the Sentinel hosts to ask for the master, falling back to the single configured host.
+     */
+    protected function getSentinelHosts(array $config): array
+    {
+        $hosts = $config['sentinel_hosts'] ?? [];
+
+        if (empty($hosts)) {
+            return [[]];
+        }
+
+        return array_map(fn (array $host) => [
+            'sentinel_host' => $host['host'] ?? '',
+            'sentinel_port' => (int) ($host['port'] ?? 26379),
+        ], $hosts);
     }
 
     /**
