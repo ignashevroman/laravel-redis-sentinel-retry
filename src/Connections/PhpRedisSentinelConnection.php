@@ -44,17 +44,29 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
      */
     private function tryReconnect(RedisException $exception): bool
     {
-        // We convert the exception message to lower-case in order to perform case-insensitive comparison.
-        $exceptionMessage = strtolower($exception->getMessage());
+        if (! $this->isUnavailabilityError($exception->getMessage())) {
+            return false;
+        }
 
-        // Because we also match only partial exception messages, we cannot use in_array() at this point.
+        // Here we reconnect through Redis Sentinel if we lost connection to the server or if another unavailability occurred.
+        // We may actually reconnect to the same, broken server. But after a failover occured, we should be ok.
+        // It may take a moment until the Sentinel returns the new master, so this may be triggered multiple times.
+        $this->reconnect();
+
+        return true;
+    }
+
+    /**
+     * Checks whether the given error message indicates a connection loss or another unavailability of Redis.
+     */
+    public function isUnavailabilityError(string $message): bool
+    {
+        // We convert the message to lower-case in order to perform case-insensitive comparison.
+        $message = strtolower($message);
+
+        // Because we also match only partial messages, we cannot use in_array() at this point.
         foreach (self::ERROR_MESSAGES_INDICATING_UNAVAILABILITY as $errorMessage) {
-            if (str_contains($exceptionMessage, $errorMessage)) {
-                // Here we reconnect through Redis Sentinel if we lost connection to the server or if another unavailability occurred.
-                // We may actually reconnect to the same, broken server. But after a failover occured, we should be ok.
-                // It may take a moment until the Sentinel returns the new master, so this may be triggered multiple times.
-                $this->reconnect();
-
+            if (str_contains($message, $errorMessage)) {
                 return true;
             }
         }

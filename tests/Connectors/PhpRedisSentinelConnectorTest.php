@@ -69,10 +69,10 @@ class PhpRedisSentinelConnectorTest extends TestCase
             ->onlyMethods(['connectToSentinel'])
             ->getMock();
 
-        $sentinel = $this->createMock(RedisSentinel::class);
+        $sentinel = $this->createStub(RedisSentinel::class);
         $sentinel->method('master')->willReturn(null);
 
-        $connector->method('connectToSentinel')->willReturn($sentinel);
+        $connector->expects($this->once())->method('connectToSentinel')->willReturn($sentinel);
 
         $this->expectException(RedisException::class);
         $this->expectExceptionMessageMatches('/No master found/');
@@ -92,6 +92,53 @@ class PhpRedisSentinelConnectorTest extends TestCase
     }
 
     /**
+     * @throws RedisException
+     * @throws \Illuminate\Contracts\Redis\LimiterTimeoutException
+     */
+    public function test_throttle_reconnects_to_master_when_connected_to_replica(): void
+    {
+        $this->assertThrottleReconnectsFromReplica(env('REDIS_REPLICA_HOST', '127.0.0.1'), (int) env('REDIS_REPLICA_PORT', 6380));
+    }
+
+    /**
+     * Redis < 7 wraps the READONLY error of a script into "ERR Error running script", so PhpRedis returns false.
+     *
+     * @throws RedisException
+     * @throws \Illuminate\Contracts\Redis\LimiterTimeoutException
+     */
+    public function test_throttle_reconnects_to_master_when_connected_to_redis_6_replica(): void
+    {
+        $this->assertThrottleReconnectsFromReplica(env('REDIS_6_REPLICA_HOST', '127.0.0.1'), (int) env('REDIS_6_REPLICA_PORT', 6402));
+    }
+
+    /**
+     * @throws RedisException
+     * @throws \Illuminate\Contracts\Redis\LimiterTimeoutException
+     */
+    private function assertThrottleReconnectsFromReplica(string $host, int $port): void
+    {
+        /** @var PhpRedisSentinelConnection $connection */
+        $connection = app('redis')->connection('default');
+
+        /** @var RedisWrapper $client */
+        $client = $connection->client();
+
+        $replica = new Redis();
+        $replica->connect($host, $port);
+        self::assertSame('slave', $replica->info('replication')['role']);
+
+        $client->setClient($replica);
+
+        $result = $connection->throttle('throttle_after_failover')
+            ->allow(10)
+            ->every(60)
+            ->then(fn () => 'acquired', fn () => 'limited');
+
+        self::assertSame('acquired', $result);
+        self::assertNotSame($replica, $client->getClient());
+    }
+
+    /**
      * @throws ReflectionException
      */
     private function assertRedisWrapperReconnectsOnException(RedisException $exception, string $key): void
@@ -105,12 +152,8 @@ class PhpRedisSentinelConnectorTest extends TestCase
 
         $innerBefore = $client->getClient();
 
-        $mock = $this->getMockBuilder(Redis::class)
-            ->onlyMethods(['get'])
-            ->getMock();
-
-        $mock->expects($this->any())
-            ->method('get')
+        $mock = $this->createStub(Redis::class);
+        $mock->method('get')
             ->willThrowException($exception);
 
         $client->setClient($mock);

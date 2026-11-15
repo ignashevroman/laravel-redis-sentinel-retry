@@ -52,7 +52,18 @@ class RedisWrapper
         while ($attempt < $this->maxRetries) {
             $attempt++;
             try {
-                return $this->client->{$name}(...$arguments);
+                $result = $this->client->{$name}(...$arguments);
+
+                // PhpRedis does not throw on some error replies, it returns false and keeps the error as last error.
+                if ($result === false && $this->connection) {
+                    $error = $this->client->getLastError();
+
+                    if ($error !== null && $this->connection->isUnavailabilityError($error)) {
+                        throw new RedisException($error);
+                    }
+                }
+
+                return $result;
             } catch (RedisException $e) {
                 try {
                     if ($this->connection && $this->connection->handleFailover($e)) {

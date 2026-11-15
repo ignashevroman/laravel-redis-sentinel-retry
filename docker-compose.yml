@@ -1,65 +1,56 @@
-version: '3'
-
 services:
   redis-master:
-    image: bitnami/redis:7.4
-    environment:
-      REDIS_REPLICATION_MODE: master
-      ALLOW_EMPTY_PASSWORD: 'yes'
-    ports:
-      - '6379:6379'
+    image: redis:7.4
+    network_mode: host
+    command: redis-server --port 6379
+    healthcheck:
+      test: redis-cli -p 6379 ping
+      interval: 1s
+      retries: 30
 
-  redis-replica-1:
-    image: bitnami/redis:7.4
-    environment:
-      REDIS_REPLICATION_MODE: slave
-      REDIS_MASTER_HOST: redis-master
-      ALLOW_EMPTY_PASSWORD: 'yes'
+  redis-replica:
+    image: redis:7.4
+    network_mode: host
+    command: redis-server --port 6380 --replicaof 127.0.0.1 6379
+    healthcheck:
+      test: redis-cli -p 6380 info replication | grep -q master_link_status:up
+      interval: 1s
+      retries: 30
     depends_on:
-      - redis-master
+      redis-master:
+        condition: service_healthy
 
-  redis-replica-2:
-    image: bitnami/redis:7.4
-    environment:
-      REDIS_REPLICATION_MODE: slave
-      REDIS_MASTER_HOST: redis-master
-      ALLOW_EMPTY_PASSWORD: 'yes'
-    depends_on:
-      - redis-master
+  redis-6-master:
+    image: redis:6.2
+    network_mode: host
+    command: redis-server --port 6401
+    healthcheck:
+      test: redis-cli -p 6401 ping
+      interval: 1s
+      retries: 30
 
-  sentinel-1:
-    image: bitnami/redis-sentinel:7.4
-    ports:
-      - '26379:26379'
-    environment:
-      REDIS_SENTINEL_QUORUM: '2'
-      REDIS_MASTER_NAME: mymaster
-      REDIS_MASTER_HOST: redis-master
-      REDIS_MASTER_PORT_NUMBER: '6379'
-      ALLOW_EMPTY_PASSWORD: 'yes'
+  redis-6-replica:
+    image: redis:6.2
+    network_mode: host
+    command: redis-server --port 6402 --replicaof 127.0.0.1 6401
+    healthcheck:
+      test: redis-cli -p 6402 info replication | grep -q master_link_status:up
+      interval: 1s
+      retries: 30
     depends_on:
-      - redis-master
-      - redis-replica-1
-      - redis-replica-2
+      redis-6-master:
+        condition: service_healthy
 
-  sentinel-2:
-    image: bitnami/redis-sentinel:7.4
-    environment:
-      REDIS_SENTINEL_QUORUM: '2'
-      REDIS_MASTER_NAME: mymaster
-      REDIS_MASTER_HOST: redis-master
-      REDIS_MASTER_PORT_NUMBER: '6379'
-      ALLOW_EMPTY_PASSWORD: 'yes'
+  sentinel:
+    image: redis:7.4
+    network_mode: host
+    command: >-
+      sh -c 'printf "port 26379\nsentinel monitor mymaster 127.0.0.1 6379 1\n" > /tmp/sentinel.conf
+      && redis-sentinel /tmp/sentinel.conf'
+    healthcheck:
+      test: redis-cli -p 26379 sentinel get-master-addr-by-name mymaster | grep -q 6379
+      interval: 1s
+      retries: 30
     depends_on:
-      - redis-master
-
-  sentinel-3:
-    image: bitnami/redis-sentinel:7.4
-    environment:
-      REDIS_SENTINEL_QUORUM: '2'
-      REDIS_MASTER_NAME: mymaster
-      REDIS_MASTER_HOST: redis-master
-      REDIS_MASTER_PORT_NUMBER: '6379'
-      ALLOW_EMPTY_PASSWORD: 'yes'
-    depends_on:
-      - redis-master
+      redis-master:
+        condition: service_healthy

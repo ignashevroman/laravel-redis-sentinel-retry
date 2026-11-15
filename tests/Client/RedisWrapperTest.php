@@ -55,7 +55,7 @@ class RedisWrapperTest extends TestCase
                 'recovered'
             );
 
-        $mockConnection = $this->createMock(PhpRedisSentinelConnection::class);
+        $mockConnection = $this->createStub(PhpRedisSentinelConnection::class);
         $mockConnection->method('handleFailover')->willReturn(true);
 
         $wrapper = new RedisWrapper($mockRedis, $mockConnection, maxRetries: 3, retryDelay: 0);
@@ -69,10 +69,10 @@ class RedisWrapperTest extends TestCase
     {
         $this->expectException(RedisException::class);
 
-        $mockRedis = $this->createMock(Redis::class);
+        $mockRedis = $this->createStub(Redis::class);
         $mockRedis->method('get')->willThrowException(new RedisException('fail'));
 
-        $mockConnection = $this->createMock(PhpRedisSentinelConnection::class);
+        $mockConnection = $this->createStub(PhpRedisSentinelConnection::class);
         $mockConnection->method('handleFailover')->willReturn(true);
 
         $wrapper = new RedisWrapper($mockRedis, $mockConnection, maxRetries: 3, retryDelay: 0);
@@ -89,7 +89,7 @@ class RedisWrapperTest extends TestCase
         $mockRedis = $this->createMock(Redis::class);
         $mockRedis->expects($this->once())->method('get')->willThrowException(new RedisException('fail'));
 
-        $mockConnection = $this->createMock(PhpRedisSentinelConnection::class);
+        $mockConnection = $this->createStub(PhpRedisSentinelConnection::class);
         $mockConnection->method('handleFailover')->willReturn(false);
 
         $wrapper = new RedisWrapper($mockRedis, $mockConnection, maxRetries: 3, retryDelay: 0);
@@ -99,9 +99,89 @@ class RedisWrapperTest extends TestCase
     /**
      * @throws Exception
      */
+    public function test_retries_when_false_is_returned_with_unavailability_error(): void
+    {
+        $staleClient = $this->createMock(Redis::class);
+        $staleClient->expects($this->once())->method('eval')->willReturn(false);
+        $staleClient->method('getLastError')->willReturn('LOADING Redis is loading the dataset in memory');
+
+        $freshClient = $this->createMock(Redis::class);
+        $freshClient->expects($this->once())->method('eval')->willReturn([1, 2, 3]);
+
+        $wrapper = new RedisWrapper($staleClient, maxRetries: 3, retryDelay: 0);
+
+        $connection = new PhpRedisSentinelConnection($wrapper, function () use ($wrapper, $freshClient) {
+            $wrapper->setClient($freshClient);
+
+            return $wrapper;
+        }, []);
+        $wrapper->setConnection($connection);
+
+        $this->assertSame([1, 2, 3], $wrapper->eval('return {1, 2, 3}', [], 0));
+        $this->assertSame($freshClient, $wrapper->getClient());
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function test_returns_false_when_last_error_does_not_indicate_unavailability(): void
+    {
+        $mockRedis = $this->createMock(Redis::class);
+        $mockRedis->expects($this->once())->method('get')->willReturn(false);
+        $mockRedis->method('getLastError')->willReturn('WRONGTYPE Operation against a key holding the wrong kind of value');
+
+        $mockConnection = $this->createMock(PhpRedisSentinelConnection::class);
+        $mockConnection->method('isUnavailabilityError')->willReturn(false);
+        $mockConnection->expects($this->never())->method('handleFailover');
+
+        $wrapper = new RedisWrapper($mockRedis, $mockConnection, maxRetries: 3, retryDelay: 0);
+
+        $this->assertFalse($wrapper->get('foo'));
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function test_returns_false_when_there_is_no_last_error(): void
+    {
+        $mockRedis = $this->createMock(Redis::class);
+        $mockRedis->expects($this->once())->method('get')->willReturn(false);
+        $mockRedis->method('getLastError')->willReturn(null);
+
+        $mockConnection = $this->createMock(PhpRedisSentinelConnection::class);
+        $mockConnection->expects($this->never())->method('isUnavailabilityError');
+        $mockConnection->expects($this->never())->method('handleFailover');
+
+        $wrapper = new RedisWrapper($mockRedis, $mockConnection, maxRetries: 3, retryDelay: 0);
+
+        $this->assertFalse($wrapper->get('missing'));
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function test_fails_after_max_retries_when_false_is_returned_with_unavailability_error(): void
+    {
+        $mockRedis = $this->createMock(Redis::class);
+        $mockRedis->expects($this->exactly(3))->method('get')->willReturn(false);
+        $mockRedis->method('getLastError')->willReturn('Connection lost');
+
+        $mockConnection = $this->createStub(PhpRedisSentinelConnection::class);
+        $mockConnection->method('isUnavailabilityError')->willReturn(true);
+        $mockConnection->method('handleFailover')->willReturn(true);
+
+        $wrapper = new RedisWrapper($mockRedis, $mockConnection, maxRetries: 3, retryDelay: 0);
+
+        $this->expectException(RedisException::class);
+        $wrapper->get('foo');
+    }
+
+    /**
+     * @throws Exception
+     */
     public function test_set_client_replaces_underlying_client(): void
     {
-        $originalClient = $this->createMock(Redis::class);
+        $originalClient = $this->createStub(Redis::class);
         $newClient = $this->createMock(Redis::class);
 
         $wrapper = new RedisWrapper($originalClient);
@@ -144,8 +224,8 @@ class RedisWrapperTest extends TestCase
      */
     public function test_getClient_returns_the_current_client(): void
     {
-        $originalClient = $this->createMock(Redis::class);
-        $newClient = $this->createMock(Redis::class);
+        $originalClient = $this->createStub(Redis::class);
+        $newClient = $this->createStub(Redis::class);
 
         $wrapper = new RedisWrapper($originalClient);
 
