@@ -121,7 +121,7 @@ In your `config/database.php`, add a new connection entry under the `redis` arra
 
 6. **Pipelines and Transactions:**
     - `pipeline()` and `transaction()` with a callback are retried as a whole: after reconnecting, the callback is executed again, so it should not have side effects outside of Redis.
-    - Commands of a pipeline executed before the error are executed again on retry, a transaction is discarded by Redis on error.
+    - After a failover (`READONLY`) nothing was written, so the retry is safe. If the connection is lost while the commands are executed, some of them (or the whole transaction) may already be applied and are executed again, so prefer idempotent commands. The same applies to single commands retried after a connection loss.
     - `pipeline()` and `transaction()` without a callback return the client as is and are not retried.
 
 In general, this implementation focuses on improving fault tolerance and automating Redis connection management with Redis Sentinel, along with additional settings for controlling retry attempts and delay between reconnections.
