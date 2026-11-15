@@ -69,10 +69,10 @@ class PhpRedisSentinelConnectorTest extends TestCase
             ->onlyMethods(['connectToSentinel'])
             ->getMock();
 
-        $sentinel = $this->createMock(RedisSentinel::class);
+        $sentinel = $this->createStub(RedisSentinel::class);
         $sentinel->method('master')->willReturn(null);
 
-        $connector->method('connectToSentinel')->willReturn($sentinel);
+        $connector->expects($this->once())->method('connectToSentinel')->willReturn($sentinel);
 
         $this->expectException(RedisException::class);
         $this->expectExceptionMessageMatches('/No master found/');
@@ -152,12 +152,8 @@ class PhpRedisSentinelConnectorTest extends TestCase
 
         $innerBefore = $client->getClient();
 
-        $mock = $this->getMockBuilder(Redis::class)
-            ->onlyMethods(['get'])
-            ->getMock();
-
-        $mock->expects($this->any())
-            ->method('get')
+        $mock = $this->createStub(Redis::class);
+        $mock->method('get')
             ->willThrowException($exception);
 
         $client->setClient($mock);

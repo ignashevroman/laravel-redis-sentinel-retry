@@ -26,8 +26,8 @@ class PhpRedisSentinelConnectionTest extends TestCase
      */
     public function test_handle_failover_returns_true_when_exception_message_matches(): void
     {
-        $clientBefore = $this->createMock(Redis::class);
-        $clientAfter = $this->createMock(Redis::class);
+        $clientBefore = $this->createStub(Redis::class);
+        $clientAfter = $this->createStub(Redis::class);
 
         $called = false;
 
@@ -48,7 +48,7 @@ class PhpRedisSentinelConnectionTest extends TestCase
      */
     public function test_handle_failover_returns_false_when_exception_message_does_not_match(): void
     {
-        $client = $this->createMock(Redis::class);
+        $client = $this->createStub(Redis::class);
 
         $connection = new PhpRedisSentinelConnection($client, function () {
             $this->fail('Connector should not be called');
@@ -64,7 +64,7 @@ class PhpRedisSentinelConnectionTest extends TestCase
      */
     public function test_is_unavailability_error_matches_case_insensitive(): void
     {
-        $connection = new PhpRedisSentinelConnection($this->createMock(Redis::class), null, []);
+        $connection = new PhpRedisSentinelConnection($this->createStub(Redis::class), null, []);
 
         $this->assertTrue($connection->isUnavailabilityError("READONLY You can't write against a read only replica."));
         $this->assertTrue($connection->isUnavailabilityError('Read error on connection to 10.0.0.1:6379'));
@@ -79,8 +79,8 @@ class PhpRedisSentinelConnectionTest extends TestCase
      */
     public function test_set_client_replaces_client(): void
     {
-        $client1 = $this->createMock(Redis::class);
-        $client2 = $this->createMock(Redis::class);
+        $client1 = $this->createStub(Redis::class);
+        $client2 = $this->createStub(Redis::class);
 
         $connection = new PhpRedisSentinelConnection($client1, null, []);
 
