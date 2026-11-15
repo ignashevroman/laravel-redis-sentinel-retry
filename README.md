@@ -26,15 +26,19 @@ It is based on the [Namoshek/laravel-redis-sentinel](https://github.com/Namoshek
 
 ### Comparison with `namoshek/laravel-redis-sentinel`
 
-| Feature                                | `ignashevroman/laravel-redis-sentinel-retry` | `namoshek/laravel-redis-sentinel` |
-|:---------------------------------------|:---------------------------------------------|:----------------------------------|
-| Connection via Redis Sentinel          | ✅                                           | ✅                                |
-| Easy integration                       | ✅                                           | ✅                                |
-| Automatic retry on connection failures | ✅                                           | ❌                                |
-| Failover during runtime                | ✅                                           | ❌                                |
-| Configurable retry attempts and delays | ✅                                           | ❌                                |
-| Focus on production stability          | ✅                                           | ❌                                |
-| Error handling strategy                | Catch and retry                             | Immediate exception              |
+| Feature                                                    | `ignashevroman/laravel-redis-sentinel-retry` | `namoshek/laravel-redis-sentinel` |
+|:-----------------------------------------------------------|:---------------------------------------------|:----------------------------------|
+| Connection via Redis Sentinel                              | ✅                                           | ✅                                |
+| Multiple Sentinel hosts                                    | ✅                                           | ✅                                |
+| Reconnect and retry on failover during runtime             | ✅                                           | ✅                                |
+| Retry of pipelines and transactions                        | ✅                                           | ✅                                |
+| Retry of calls made directly on the PhpRedis client        | ✅                                           | ❌                                |
+| Retry on error replies PhpRedis returns as `false` (*)     | ✅                                           | ❌                                |
+| Initial connection retries                                 | Opt-in                                       | Enabled by default                |
+| Exception after the last attempt                           | Original `RedisException`                    | `RetryRedisException`             |
+
+(*) Redis < 7 wraps `READONLY` from Lua scripts into `ERR Error running script`, which PhpRedis returns as `false`
+instead of throwing. Without handling it, `EVAL` on the old master keeps failing after a failover.
 
 ## Installation
 
