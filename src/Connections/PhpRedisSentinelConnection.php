@@ -87,6 +87,82 @@ class PhpRedisSentinelConnection extends PhpRedisConnection
         return $this->tryReconnect($exception);
     }
 
+    /**
+     * {@inheritdoc}
+     *
+     * The pipeline with a callback is retried as a whole after a failover.
+     *
+     * @throws RedisException
+     */
+    public function pipeline(?callable $callback = null)
+    {
+        if ($callback === null) {
+            return parent::pipeline();
+        }
+
+        return $this->retryOnFailover(fn () => parent::pipeline($callback));
+    }
+
+    /**
+     * {@inheritdoc}
+     *
+     * The transaction with a callback is retried as a whole after a failover.
+     *
+     * @throws RedisException
+     */
+    public function transaction(?callable $callback = null)
+    {
+        if ($callback === null) {
+            return parent::transaction();
+        }
+
+        return $this->retryOnFailover(fn () => parent::transaction($callback));
+    }
+
+    /**
+     * Runs the operation and repeats it after reconnecting if the error indicates unavailability of Redis.
+     *
+     * @throws RedisException
+     */
+    private function retryOnFailover(callable $operation): mixed
+    {
+        $maxRetries = (int) ($this->config['sentinel_max_retries'] ?? 3);
+        $retryDelay = (int) ($this->config['sentinel_retry_delay'] ?? 100_000);
+        $attempt = 0;
+
+        while (true) {
+            $attempt++;
+
+            try {
+                return $operation();
+            } catch (RedisException $e) {
+                if ($attempt >= $maxRetries || ! $this->reconnectAfter($e)) {
+                    throw $e;
+                }
+
+                usleep($retryDelay);
+            }
+        }
+    }
+
+    /**
+     * Reconnects if the error indicates unavailability of Redis. A failed reconnect is retried with the next attempt.
+     */
+    private function reconnectAfter(RedisException $exception): bool
+    {
+        if (! $this->isUnavailabilityError($exception->getMessage())) {
+            return false;
+        }
+
+        try {
+            $this->reconnect();
+        } catch (RedisException) {
+            // Sentinel may not return the new master yet.
+        }
+
+        return true;
+    }
+
     public function setClient($client): void
     {
         $this->client = $client;

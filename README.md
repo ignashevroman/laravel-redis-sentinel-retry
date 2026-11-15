@@ -26,15 +26,19 @@ It is based on the [Namoshek/laravel-redis-sentinel](https://github.com/Namoshek
 
 ### Comparison with `namoshek/laravel-redis-sentinel`
 
-| Feature                                | `ignashevroman/laravel-redis-sentinel-retry` | `namoshek/laravel-redis-sentinel` |
-|:---------------------------------------|:---------------------------------------------|:----------------------------------|
-| Connection via Redis Sentinel          | ✅                                           | ✅                                |
-| Easy integration                       | ✅                                           | ✅                                |
-| Automatic retry on connection failures | ✅                                           | ❌                                |
-| Failover during runtime                | ✅                                           | ❌                                |
-| Configurable retry attempts and delays | ✅                                           | ❌                                |
-| Focus on production stability          | ✅                                           | ❌                                |
-| Error handling strategy                | Catch and retry                             | Immediate exception              |
+| Feature                                                    | `ignashevroman/laravel-redis-sentinel-retry` | `namoshek/laravel-redis-sentinel` |
+|:-----------------------------------------------------------|:---------------------------------------------|:----------------------------------|
+| Connection via Redis Sentinel                              | ✅                                           | ✅                                |
+| Multiple Sentinel hosts                                    | ✅                                           | ✅                                |
+| Reconnect and retry on failover during runtime             | ✅                                           | ✅                                |
+| Retry of pipelines and transactions                        | ✅                                           | ✅                                |
+| Retry of calls made directly on the PhpRedis client        | ✅                                           | ❌                                |
+| Retry on error replies PhpRedis returns as `false` (*)     | ✅                                           | ❌                                |
+| Initial connection retries                                 | Opt-in                                       | Enabled by default                |
+| Exception after the last attempt                           | Original `RedisException`                    | `RetryRedisException`             |
+
+(*) Redis < 7 wraps `READONLY` from Lua scripts into `ERR Error running script`, which PhpRedis returns as `false`
+instead of throwing. Without handling it, `EVAL` on the old master keeps failing after a failover.
 
 ## Installation
 
@@ -114,6 +118,11 @@ In your `config/database.php`, add a new connection entry under the `redis` arra
 5. **Error Handling in RedisWrapper:**
     - When an error occurs, such as a lost connection or readonly error, RedisWrapper attempts to **reconnect** through **handleFailover** (a method that manages reconnection).
     - If Redis does not recover after several attempts, an exception is thrown, just like in a standard Redis error scenario.
+
+6. **Pipelines and Transactions:**
+    - `pipeline()` and `transaction()` with a callback are retried as a whole: after reconnecting, the callback is executed again, so it should not have side effects outside of Redis.
+    - After a failover (`READONLY`) nothing was written, so the retry is safe. If the connection is lost while the commands are executed, some of them (or the whole transaction) may already be applied and are executed again, so prefer idempotent commands. The same applies to single commands retried after a connection loss.
+    - `pipeline()` and `transaction()` without a callback return the client as is and are not retried.
 
 In general, this implementation focuses on improving fault tolerance and automating Redis connection management with Redis Sentinel, along with additional settings for controlling retry attempts and delay between reconnections.
 

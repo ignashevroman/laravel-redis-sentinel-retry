@@ -258,21 +258,100 @@ class PhpRedisSentinelConnectorTest extends TestCase
 
     /**
      * @throws RedisException
-     * @throws \Illuminate\Contracts\Redis\LimiterTimeoutException
      */
-    private function assertThrottleReconnectsFromReplica(string $host, int $port): void
+    public function test_pipeline_is_retried_after_failover(): void
+    {
+        [$connection, $replica] = $this->connectionStuckOnReplica(env('REDIS_REPLICA_HOST', '127.0.0.1'), (int) env('REDIS_REPLICA_PORT', 6380));
+        $calls = 0;
+
+        $result = $connection->pipeline(function ($pipe) use (&$calls) {
+            $calls++;
+            $pipe->set('pipeline_after_failover', 'value');
+            $pipe->get('pipeline_after_failover');
+        });
+
+        self::assertSame([true, 'value'], $result);
+        self::assertSame(2, $calls);
+        self::assertNotSame($replica, $connection->client()->getClient());
+    }
+
+    /**
+     * @throws RedisException
+     */
+    public function test_transaction_is_retried_after_failover_on_redis_6(): void
+    {
+        [$connection, $replica] = $this->connectionStuckOnReplica(env('REDIS_6_REPLICA_HOST', '127.0.0.1'), (int) env('REDIS_6_REPLICA_PORT', 6402));
+        $calls = 0;
+
+        $result = $connection->transaction(function ($transaction) use (&$calls) {
+            $calls++;
+            $transaction->set('transaction_after_failover', 'value');
+            $transaction->get('transaction_after_failover');
+        });
+
+        self::assertSame([true, 'value'], $result);
+        self::assertSame(2, $calls);
+        self::assertNotSame($replica, $connection->client()->getClient());
+    }
+
+    public function test_pipeline_is_not_retried_on_other_errors(): void
+    {
+        /** @var PhpRedisSentinelConnection $connection */
+        $connection = app('redis')->connection('default');
+        $calls = 0;
+
+        try {
+            $connection->pipeline(function () use (&$calls) {
+                $calls++;
+
+                throw new RedisException('Something unrelated');
+            });
+            self::fail('The exception should be rethrown');
+        } catch (RedisException $e) {
+            self::assertSame('Something unrelated', $e->getMessage());
+        }
+
+        self::assertSame(1, $calls);
+    }
+
+    public function test_transaction_fails_after_max_retries(): void
+    {
+        /** @var PhpRedisSentinelConnection $connection */
+        $connection = app('redis')->connection('default');
+        $calls = 0;
+
+        try {
+            $connection->transaction(function () use (&$calls) {
+                $calls++;
+
+                throw new RedisException('Connection lost');
+            });
+            self::fail('The exception should be rethrown');
+        } catch (RedisException $e) {
+            self::assertSame('Connection lost', $e->getMessage());
+        }
+
+        self::assertSame(3, $calls);
+    }
+
+    public function test_pipeline_without_callback_is_returned_as_is(): void
     {
         /** @var PhpRedisSentinelConnection $connection */
         $connection = app('redis')->connection('default');
 
-        /** @var RedisWrapper $client */
-        $client = $connection->client();
+        $pipeline = $connection->pipeline();
+        $pipeline->set('pipeline_without_callback', 'value');
 
-        $replica = new Redis();
-        $replica->connect($host, $port);
-        self::assertSame('slave', $replica->info('replication')['role']);
+        self::assertSame([true], $pipeline->exec());
+    }
 
-        $client->setClient($replica);
+    /**
+     * @throws RedisException
+     * @throws \Illuminate\Contracts\Redis\LimiterTimeoutException
+     */
+    private function assertThrottleReconnectsFromReplica(string $host, int $port): void
+    {
+        [$connection, $replica] = $this->connectionStuckOnReplica($host, $port);
 
         $result = $connection->throttle('throttle_after_failover')
             ->allow(10)
@@ -280,7 +359,30 @@ class PhpRedisSentinelConnectorTest extends TestCase
             ->then(fn () => 'acquired', fn () => 'limited');
 
         self::assertSame('acquired', $result);
-        self::assertNotSame($replica, $client->getClient());
+        self::assertNotSame($replica, $connection->client()->getClient());
+    }
+
+    /**
+     * Returns the default connection whose client is connected to a replica, as the old master after a failover.
+     *
+     * @return array{PhpRedisSentinelConnection, Redis}
+     *
+     * @throws RedisException
+     */
+    private function connectionStuckOnReplica(string $host, int $port): array
+    {
+        /** @var PhpRedisSentinelConnection $connection */
+        $connection = app('redis')->connection('default');
+
+        $replica = new Redis();
+        $replica->connect($host, $port);
+        self::assertSame('slave', $replica->info('replication')['role']);
+
+        /** @var RedisWrapper $client */
+        $client = $connection->client();
+        $client->setClient($replica);
+
+        return [$connection, $replica];
     }
 
     private function sentinelConfig(array $overrides = []): array
