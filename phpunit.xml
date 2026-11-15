@@ -16,6 +16,10 @@
         <env name="REDIS_SENTINEL_HOST" value="127.0.0.1"/>
         <env name="REDIS_SENTINEL_PORT" value="26379"/>
         <env name="REDIS_SENTINEL_SERVICE" value="mymaster"/>
+        <env name="REDIS_REPLICA_HOST" value="127.0.0.1"/>
+        <env name="REDIS_REPLICA_PORT" value="6380"/>
+        <env name="REDIS_6_REPLICA_HOST" value="127.0.0.1"/>
+        <env name="REDIS_6_REPLICA_PORT" value="6402"/>
     </php>
     <testsuites>
         <testsuite name="default">

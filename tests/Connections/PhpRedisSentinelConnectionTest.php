@@ -62,6 +62,21 @@ class PhpRedisSentinelConnectionTest extends TestCase
     /**
      * @throws Exception
      */
+    public function test_is_unavailability_error_matches_case_insensitive(): void
+    {
+        $connection = new PhpRedisSentinelConnection($this->createMock(Redis::class), null, []);
+
+        $this->assertTrue($connection->isUnavailabilityError("READONLY You can't write against a read only replica."));
+        $this->assertTrue($connection->isUnavailabilityError('Read error on connection to 10.0.0.1:6379'));
+        $this->assertTrue($connection->isUnavailabilityError(
+            "ERR Error running script (call to f_29cc07bd): @user_script:2: @user_script: 2: -READONLY You can't write against a read only replica."
+        ));
+        $this->assertFalse($connection->isUnavailabilityError('WRONGTYPE Operation against a key holding the wrong kind of value'));
+    }
+
+    /**
+     * @throws Exception
+     */
     public function test_set_client_replaces_client(): void
     {
         $client1 = $this->createMock(Redis::class);
