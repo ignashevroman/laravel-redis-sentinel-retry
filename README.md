@@ -115,6 +115,11 @@ In your `config/database.php`, add a new connection entry under the `redis` arra
     - When an error occurs, such as a lost connection or readonly error, RedisWrapper attempts to **reconnect** through **handleFailover** (a method that manages reconnection).
     - If Redis does not recover after several attempts, an exception is thrown, just like in a standard Redis error scenario.
 
+6. **Pipelines and Transactions:**
+    - `pipeline()` and `transaction()` with a callback are retried as a whole: after reconnecting, the callback is executed again, so it should not have side effects outside of Redis.
+    - Commands of a pipeline executed before the error are executed again on retry, a transaction is discarded by Redis on error.
+    - `pipeline()` and `transaction()` without a callback return the client as is and are not retried.
+
 In general, this implementation focuses on improving fault tolerance and automating Redis connection management with Redis Sentinel, along with additional settings for controlling retry attempts and delay between reconnections.
 
 ## License
