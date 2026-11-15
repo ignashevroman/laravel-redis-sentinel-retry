@@ -72,7 +72,7 @@ class PhpRedisSentinelConnectorTest extends TestCase
         $sentinel = $this->createStub(RedisSentinel::class);
         $sentinel->method('master')->willReturn(null);
 
-        $connector->expects($this->once())->method('connectToSentinel')->willReturn($sentinel);
+        $connector->expects($this->exactly(2))->method('connectToSentinel')->willReturn($sentinel);
 
         $this->expectException(RedisException::class);
         $this->expectExceptionMessageMatches('/No master found/');
@@ -80,6 +80,8 @@ class PhpRedisSentinelConnectorTest extends TestCase
         $connector->connect([
             'sentinel_service' => 'invalid',
             'sentinel_host' => '127.0.0.1',
+            'sentinel_connect_max_retries' => 2,
+            'sentinel_connect_retry_delay' => 0,
         ], []);
     }
 
@@ -89,6 +91,149 @@ class PhpRedisSentinelConnectorTest extends TestCase
 
         $this->expectException(ConfigurationException::class);
         $connector->connect([], []);
+    }
+
+    /**
+     * @throws Exception
+     * @throws RedisException
+     */
+    public function test_retries_first_connect_until_sentinel_is_available(): void
+    {
+        $connector = $this->getMockBuilder(PhpRedisSentinelConnector::class)
+            ->onlyMethods(['connectToSentinel'])
+            ->getMock();
+
+        $sentinel = new RedisSentinel(['host' => env('REDIS_SENTINEL_HOST', '127.0.0.1'), 'port' => (int) env('REDIS_SENTINEL_PORT', 26379)]);
+        $calls = 0;
+
+        $connector->expects($this->exactly(3))
+            ->method('connectToSentinel')
+            ->willReturnCallback(function () use (&$calls, $sentinel) {
+                if (++$calls < 3) {
+                    throw new RedisException('Connection refused');
+                }
+
+                return $sentinel;
+            });
+
+        $connection = $connector->connect($this->sentinelConfig(['sentinel_connect_max_retries' => 3, 'sentinel_connect_retry_delay' => 0]), []);
+
+        self::assertTrue($connection->ping());
+    }
+
+    /**
+     * @throws Exception
+     * @throws RedisException
+     */
+    public function test_throws_after_max_retries_on_first_connect(): void
+    {
+        $connector = $this->getMockBuilder(PhpRedisSentinelConnector::class)
+            ->onlyMethods(['connectToSentinel'])
+            ->getMock();
+
+        $connector->expects($this->exactly(2))
+            ->method('connectToSentinel')
+            ->willThrowException(new RedisException('Connection refused'));
+
+        $this->expectException(RedisException::class);
+        $this->expectExceptionMessage('Connection refused');
+
+        $connector->connect($this->sentinelConfig(['sentinel_connect_max_retries' => '2', 'sentinel_connect_retry_delay' => '0']), []);
+    }
+
+    /**
+     * @throws Exception
+     * @throws RedisException
+     */
+    public function test_does_not_retry_first_connect_by_default(): void
+    {
+        $connector = $this->getMockBuilder(PhpRedisSentinelConnector::class)
+            ->onlyMethods(['connectToSentinel'])
+            ->getMock();
+
+        $connector->expects($this->once())
+            ->method('connectToSentinel')
+            ->willThrowException(new RedisException('Connection refused'));
+
+        $this->expectException(RedisException::class);
+
+        $connector->connect($this->sentinelConfig(['sentinel_max_retries' => 5, 'sentinel_retry_delay' => 0]), []);
+    }
+
+    /**
+     * @throws RedisException
+     */
+    public function test_throws_redis_exception_if_sentinel_host_cannot_be_resolved(): void
+    {
+        $this->expectException(RedisException::class);
+
+        (new PhpRedisSentinelConnector())->connect($this->sentinelConfig([
+            'sentinel_host' => 'no-such-host.invalid',
+            'sentinel_connect_max_retries' => 2,
+            'sentinel_connect_retry_delay' => 0,
+        ]), []);
+    }
+
+    /**
+     * @throws RedisException
+     */
+    public function test_connects_through_next_sentinel_host_if_previous_is_unavailable(): void
+    {
+        $connection = (new PhpRedisSentinelConnector())->connect($this->sentinelConfig([
+            'sentinel_hosts' => [
+                ['host' => 'no-such-host.invalid', 'port' => 26379],
+                ['host' => '127.0.0.1', 'port' => 1],
+                ['host' => env('REDIS_SENTINEL_HOST', '127.0.0.1'), 'port' => env('REDIS_SENTINEL_PORT', 26379)],
+            ],
+        ]), []);
+
+        self::assertTrue($connection->ping());
+    }
+
+    /**
+     * @throws Exception
+     * @throws RedisException
+     */
+    public function test_connects_through_next_sentinel_host_if_previous_has_no_master(): void
+    {
+        $connector = $this->getMockBuilder(PhpRedisSentinelConnector::class)
+            ->onlyMethods(['connectToSentinel'])
+            ->getMock();
+
+        $sentinelWithoutMaster = $this->createStub(RedisSentinel::class);
+        $sentinelWithoutMaster->method('master')->willReturn(false);
+
+        $sentinel = new RedisSentinel(['host' => env('REDIS_SENTINEL_HOST', '127.0.0.1'), 'port' => (int) env('REDIS_SENTINEL_PORT', 26379)]);
+
+        $connector->expects($this->exactly(2))
+            ->method('connectToSentinel')
+            ->willReturnCallback(fn (array $config) => $config['sentinel_host'] === 'stale-sentinel' ? $sentinelWithoutMaster : $sentinel);
+
+        $connection = $connector->connect($this->sentinelConfig([
+            'sentinel_hosts' => [
+                ['host' => 'stale-sentinel', 'port' => 26379],
+                ['host' => env('REDIS_SENTINEL_HOST', '127.0.0.1'), 'port' => env('REDIS_SENTINEL_PORT', 26379)],
+            ],
+        ]), []);
+
+        self::assertTrue($connection->ping());
+    }
+
+    /**
+     * @throws RedisException
+     */
+    public function test_throws_if_all_sentinel_hosts_are_unavailable(): void
+    {
+        $this->expectException(RedisException::class);
+
+        (new PhpRedisSentinelConnector())->connect($this->sentinelConfig([
+            'sentinel_hosts' => [
+                ['host' => 'no-such-host.invalid', 'port' => 26379],
+                ['host' => '127.0.0.1', 'port' => 1],
+            ],
+            'sentinel_connect_max_retries' => 2,
+            'sentinel_connect_retry_delay' => 0,
+        ]), []);
     }
 
     /**
@@ -136,6 +281,15 @@ class PhpRedisSentinelConnectorTest extends TestCase
 
         self::assertSame('acquired', $result);
         self::assertNotSame($replica, $client->getClient());
+    }
+
+    private function sentinelConfig(array $overrides = []): array
+    {
+        return array_merge([
+            'sentinel_host' => env('REDIS_SENTINEL_HOST', '127.0.0.1'),
+            'sentinel_port' => (int) env('REDIS_SENTINEL_PORT', 26379),
+            'sentinel_service' => env('REDIS_SENTINEL_SERVICE', 'mymaster'),
+        ], $overrides);
     }
 
     /**
